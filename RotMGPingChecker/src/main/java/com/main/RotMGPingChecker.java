@@ -59,7 +59,7 @@ public class RotMGPingChecker {
 			String fastestServer = null;
 			for (int i = 0; i < regions.size(); i++) {
 				try {
-					long end = getPingTime(regions.get(i));
+					getPingTime(regions.get(i));
 					System.out.println("ping for server[" + sNames.get(i) + "] was " + end + " ms");
 					if (end < min) {
 						min = end;
@@ -78,18 +78,26 @@ public class RotMGPingChecker {
 			e.printStackTrace();
 		}
 	}
+	static long end;
+	static long 
+	
+	start = System.currentTimeMillis();
 	public static long getPingTime(String addr) {
-		long start = 0;
-		start = System.currentTimeMillis();
-		//See how long it takes for us to get a response from AWS for this server
-		try {
-			Jsoup.connect("https://ec2." + addr + ".amazonaws.com/ping").get();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		long end = (System.currentTimeMillis() - start);
+		new Thread(new Runnable() {
+		    @Override
+		        public void run() {
+		    	start=System.currentTimeMillis();
+		    	try {
+					Document doc = Jsoup.connect("https://ec2." + addr + ".amazonaws.com/ping").get();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+		        end =(System.currentTimeMillis() - start);
+		        }
+		    }).start();
+		
+		
 		return end;
-
 	}
 }
