@@ -9,9 +9,21 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Queue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
+
+import com.google.common.util.concurrent.MoreExecutors;
 
 public class RotMGPingChecker {
 	//Static lists and maps for servers and their EC2 region name
@@ -21,10 +33,10 @@ public class RotMGPingChecker {
 
 	public static void main(String args[]) {
 		System.out.println("Starting RotMG ping finder - Ruusey");
-		long totalTime = 0;
+
 		try {
 			Document doc = null;
-			totalTime = System.currentTimeMillis();
+			
 			//Grab current list of servers from rotmg website
 			doc = Jsoup.connect("https://realmofthemadgodhrd.appspot.com/char/list").get();
 			Elements ips = doc.getElementsByTag("DNS");
@@ -54,50 +66,60 @@ public class RotMGPingChecker {
 					servers.put(region, name);
 				}
 			}
+			ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(100);
+	           long totalTime = System.currentTimeMillis();
+	          List<Future<Long>> resultList = new ArrayList<>();
+	          for (int i = 0; i < regions.size(); i++) {
+	        	  GetPingTime ping = new GetPingTime(regions.get(i));
+	        	  Future<Long> result = executor.submit(ping);
+	        	  resultList.add(result);
+	          }
+	          for(Future<Long> future : resultList)
+	          {
+	                try
+	                {
+	                    System.out.println("Future result is : " + future.get());
+	                }
+	                catch (InterruptedException | ExecutionException e)
+	                {
+	                    e.printStackTrace();
+	                }
+	            }
+	          System.out.println("Total runtime [" + (System.currentTimeMillis() - totalTime) + "]ms");
+	            executor.shutdown();						
+										
+										
+								
+			
 			//Test all the servers ping time using AWS ping API
 			long min = Long.MAX_VALUE;
 			String fastestServer = null;
-			for (int i = 0; i < regions.size(); i++) {
-				try {
-					getPingTime(regions.get(i));
-					System.out.println("ping for server[" + sNames.get(i) + "] was " + end + " ms");
-					if (end < min) {
-						min = end;
-						fastestServer = sNames.get(i);
-					}
-				} catch (Exception e) {
-					//We couldnt get a response from the API or other exception was thrown
-					System.out.println("ERROR: No response for server[" + sNames.get(i) + "]  ");
-				}
-			}
-			//Print total runtime and best server
-			System.out.println("Total runtime [" + (System.currentTimeMillis() - totalTime) + "]ms");
+//			for (int i = 0; i < regions.size(); i++) {
+//				try {
+//					final int ii = i;
+//					Future<Long> future = executorService.submit(() -> getPingTime(regions.get(ii)));
+//					
+//					System.out.println("ping for server[" + sNames.get(i) + "] was " + future.get() + " ms");
+////					if (end < min) {
+////						min = end;
+////						fastestServer = sNames.get(i);
+////					}
+//				} catch (Exception e) {
+//					//We couldnt get a response from the API or other exception was thrown
+//					System.out.println("ERROR: No response for server[" + sNames.get(i) + "]  ");
+//				}
+//			}
+			//Pr
 			System.out.println("Your best server is {" + fastestServer + "} with ping[" + (min) + "]ms");
 
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
-	static long end;
-	static long 
-	
-	start = System.currentTimeMillis();
-	public static long getPingTime(String addr) {
-		new Thread(new Runnable() {
-		    @Override
-		        public void run() {
-		    	start=System.currentTimeMillis();
-		    	try {
-					Document doc = Jsoup.connect("https://ec2." + addr + ".amazonaws.com/ping").get();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-		        end =(System.currentTimeMillis() - start);
-		        }
-		    }).start();
-		
-		
-		return end;
-	}
+//	public static long getPingTime(String addr) {
+//		GetPingTime pt = new GetPingTime();
+//		pt.addr=addr;
+//		pt.run();
+//		return pt.runtime;
+//	}
 }
